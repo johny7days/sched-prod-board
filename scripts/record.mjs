@@ -78,6 +78,28 @@ const top = (await rowIds())[0];
 await page.waitForFunction((t) => document.querySelector('[data-testid="incident-row"]')?.dataset.id !== t, top, { timeout: 60000 });
 await page.mouse.click(x, y);
 note({ kind: 'click', target, at_point: [Math.round(x), Math.round(y)] });
+await page.waitForTimeout(1200);
+// Build with the Ack confirm (product's decision): read the id it names; wrong one -> Cancel, Ack the intended row, confirm.
+if (await page.locator('[data-testid="confirm"]:visible').count()) {
+  let named = await page.getByTestId('confirm').innerText();
+  note({ kind: 'confirm-shown', text: named });
+  if (!named.includes(target)) {
+    await caption(`confirm names another incident, not ${target} -> Cancel`);
+    await page.waitForTimeout(2500);
+    await page.getByTestId('confirm-cancel').click();
+    note({ kind: 'confirm-cancel' });
+    await page.waitForTimeout(800);
+    await caption(`Ack on ${target} again`);
+    await page.locator(`[data-testid="incident-row"][data-id="${target}"] [data-testid="ack"]`).click();
+    await page.waitForTimeout(1200);
+    named = await page.getByTestId('confirm').innerText();
+    note({ kind: 'confirm-shown', text: named });
+  }
+  await caption(`confirm names ${target} -> Ack`);
+  await page.waitForTimeout(2000);
+  await page.getByTestId('confirm-ack').click();
+  note({ kind: 'confirm-ack', target });
+}
 await page.waitForTimeout(2500);
 const ackedRows = await page.$$eval('[data-testid="incident-row"]:has([data-testid="acked"])', (rows) => rows.map((r) => r.dataset.id));
 note({ kind: 'acked-rows', ackedRows, intended: target });

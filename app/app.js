@@ -42,9 +42,37 @@ function renderAck(row, id) {
   }
   if (slot.querySelector('[data-testid="ack"]')) return;
   const button = el('button', { type: 'button', 'data-testid': 'ack', class: 'ack' }, 'Ack');
-  button.addEventListener('click', () => onAck(row, id, button)); // R2
+  button.addEventListener('click', () => askConfirm(row, id, button)); // R2: Ack asks to confirm first
   slot.replaceChildren(button);
 }
+
+// R2 (product, after step 1): the confirm names the incident id, so a row that slid under the pointer is
+// caught before anything is sent. The panel is fixed on screen, so it never moves with the list.
+const confirmBox = document.querySelector('[data-testid="confirm"]');
+const confirmText = confirmBox.querySelector('.confirm-text');
+let pending = null;
+
+function askConfirm(row, id, button) {
+  const i = known.get(id);
+  pending = { row, id, button };
+  confirmText.textContent = `Ack ${id}? ${i ? `${i.severity} · ${i.service} · ${i.summary}` : ''}`;
+  confirmBox.hidden = false;
+  confirmBox.querySelector('[data-testid="confirm-ack"]').focus();
+}
+
+function closeConfirm() {
+  pending = null;
+  confirmBox.hidden = true;
+}
+
+confirmBox.querySelector('[data-testid="confirm-ack"]').addEventListener('click', () => {
+  if (!pending) return;
+  const { row, id, button } = pending;
+  closeConfirm();
+  onAck(row, id, button);
+});
+confirmBox.querySelector('[data-testid="confirm-cancel"]').addEventListener('click', closeConfirm);
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && pending) closeConfirm(); });
 
 async function onAck(row, id, button) {
   button.disabled = true;
